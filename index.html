@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Scroller Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #111827; /* bg-gray-900 */
+        }
+        .font-pixel {
+            font-family: 'Press-Start-2P', cursive;
+        }
+        #gameCanvas {
+            background: linear-gradient(to bottom, #38bdf8, #a7f3d0); /* sky-400 to emerald-200 */
+            cursor: pointer;
+        }
+        #typing-modal-input {
+            outline: none;
+            border: 3px solid #4b5563; /* gray-600 */
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        #typing-modal-input:focus {
+            border-color: #60a5fa; /* blue-400 */
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.5);
+        }
+        #typing-modal-input.correct {
+            border-color: #4ade80; /* green-400 */
+        }
+        #typing-modal-input.incorrect {
+            border-color: #f87171; /* red-400 */
+        }
+        .loader {
+            border: 5px solid #374151; /* gray-700 */
+            border-top: 5px solid #60a5fa; /* blue-400 */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        .mini-loader {
+            border: 3px solid #374151;
+            border-top: 3px solid #60a5fa;
+            width: 20px;
+            height: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Style for the definition box scrollbar */
+        #definition-display::-webkit-scrollbar {
+            width: 8px;
+        }
+        #definition-display::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+        }
+        #definition-display::-webkit-scrollbar-thumb {
+            background-color: #4b5563; /* gray-600 */
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex flex-col items-center justify-center min-h-screen p-4 antialiased">
+
+    <main class="w-full max-w-6xl flex flex-col items-center">
+        <!-- Game Title and Instructions -->
+        <div class="text-center p-4 z-20 w-full">
+            <h1 class="font-pixel text-3xl md:text-5xl text-sky-300 tracking-wider">Typing Scroller</h1>
+            <p class="text-gray-400 mt-4">Current Theme: <span id="theme-display" class="font-bold text-amber-300">Classic</span></p>
+            <p class="text-gray-500 mt-2 text-sm md:text-base">Use <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">W</kbd> <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">A</kbd> <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">S</kbd> <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">D</kbd> to move. Collide with words and type them fast!</p>
+        </div>
+
+        <!-- Game Container -->
+        <div id="game-container" class="relative w-full max-w-5xl aspect-[16/9] rounded-xl shadow-2xl overflow-hidden border-2 border-gray-700 mt-4">
+            <!-- Score Display -->
+            <div id="score-display" class="absolute top-4 right-4 bg-gray-900 bg-opacity-70 px-4 py-2 rounded-lg text-lg md:text-2xl font-pixel text-amber-300 z-10">
+                SCORE: <span id="score">0</span>
+            </div>
+            
+            <!-- New Theme Button -->
+            <button id="new-theme-btn" class="absolute top-4 left-4 bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 z-10 font-pixel text-xs md:text-sm">
+                ✨ New Theme
+            </button>
+
+            <!-- Game Canvas -->
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- Typing Challenge Modal -->
+            <div id="typing-modal" class="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center z-20 hidden p-4">
+                <div class="bg-gray-800 p-6 md:p-8 rounded-xl shadow-lg text-center border-2 border-gray-700 w-full max-w-2xl">
+                    <!-- Challenge View -->
+                    <div id="challenge-view">
+                        <h2 class="text-lg text-gray-400 mb-2">Type this word:</h2>
+                        <p id="typing-modal-word" class="font-pixel text-4xl md:text-5xl text-sky-300 my-6 break-words"></p>
+                        <input type="text" id="typing-modal-input" class="w-full text-center bg-gray-900 text-white text-3xl p-3 rounded-lg font-mono tracking-widest" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <button id="hint-btn" class="mt-6 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 text-sm inline-flex items-center">
+                            ✨ Get a Hint
+                        </button>
+                        <p id="hint-display" class="text-gray-400 mt-4 h-12 text-sm italic flex items-center justify-center"></p>
+                    </div>
+                    <!-- Success View -->
+                    <div id="success-view" class="hidden">
+                        <h2 id="timer-feedback" class="text-2xl text-amber-300 font-pixel"></h2>
+                        <p class="text-gray-300 mt-2 mb-6">You typed '<span id="success-word" class="font-bold text-sky-300"></span>' correctly!</p>
+                        <div class="flex flex-wrap justify-center gap-4">
+                            <button id="learn-word-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 text-sm inline-flex items-center">
+                                ✨ Learn Word
+                            </button>
+                            <button id="continue-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 text-sm">
+                                Continue
+                            </button>
+                        </div>
+                        <p id="definition-display" class="text-gray-400 mt-6 p-4 bg-gray-900 rounded-lg h-24 text-sm text-left overflow-y-auto flex items-center justify-center"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Overlay -->
+            <div id="loading-overlay" class="absolute inset-0 bg-black bg-opacity-80 flex-col items-center justify-center z-30 hidden">
+                <div class="loader"></div>
+                <p class="font-pixel text-sky-300 mt-4 text-center text-sm md:text-base">✨ Generating a new world...</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-6xl text-center py-6 mt-4">
+        <div class="flex justify-center items-center space-x-6">
+            <a href="https://www.instagram.com/girish_lade_/" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-white transition-colors duration-200">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12.315 2c-4.068 0-4.59 0-6.198.087-1.61.087-2.703.34-3.667 1.306s-1.22 2.057-1.305 3.667c-.087 1.608-.087 2.13-.087 6.198s0 4.59.087 6.198c.085 1.61.34 2.703 1.305 3.667s2.057 1.22 3.667 1.305c1.608.087 2.13.087 6.198.087s4.59 0 6.198-.087c1.61-.085 2.703-.34 3.667-1.305s1.22-2.057 1.305-3.667c.087-1.608.087-2.13.087-6.198s0-4.59-.087-6.198c-.085-1.61-.34-2.703-1.305-3.667s-2.057-1.22-3.667-1.305c-1.608-.087-2.13-.087-6.198-.087zm0 1.622c4.006 0 4.483 0 6.08.086 1.44.076 2.29.34 2.912.962.623.622.886 1.472.962 2.912.086 1.597.086 2.074.086 6.08s0 4.483-.086 6.08c-.076 1.44-.34 2.29-.962 2.912-.622.623-1.472.886-2.912.962-1.597.086-2.074.086-6.08.086s-4.483 0-6.08-.086c-1.44-.076-2.29-.34-2.912-.962-.623-.622-.886-1.472-.962-2.912-.086-1.597-.086-2.074-.086-6.08s0-4.483.086-6.08c.076-1.44.34-2.29.962-2.912.622-.623 1.472-.886 2.912-.962 1.597-.086 2.074-.086 6.08-.086zM12 6.88c-2.83 0-5.12 2.29-5.12 5.12s2.29 5.12 5.12 5.12 5.12-2.29 5.12-5.12-2.29-5.12-5.12-5.12zm0 8.62c-1.933 0-3.5-1.567-3.5-3.5s1.567-3.5 3.5-3.5 3.5 1.567 3.5 3.5-1.567 3.5-3.5 3.5zm6.405-8.455c-.78 0-1.415.635-1.415 1.415s.635 1.415 1.415 1.415 1.415-.635 1.415-1.415-.635-1.415-1.415-1.415z" clip-rule="evenodd" /></svg>
+            </a>
+            <a href="https://www.linkedin.com/in/girish-lade-075bba201/" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-white transition-colors duration-200">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+            </a>
+            <a href="https://github.com/girishlade111" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-white transition-colors duration-200">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            </a>
+            <a href="https://codepen.io/Girish-Lade-the-looper" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-white transition-colors duration-200">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.125 6.425l-9.375-5.25c-.5-.281-1.125-.281-1.625 0l-9.375 5.25c-.5.281-.875.813-.875 1.422v10.5c0 .609.375 1.141.875 1.422l9.375 5.25c.25.141.531.219.813.219s.563-.078.813-.219l9.375-5.25c.5-.281.875-.813.875-1.422v-10.5c0-.609-.375-1.141-.875-1.422zm-11.125 14.328v-5.25l-3.938-2.219 3.938 2.219v5.25zm0-6.75l-4.125-2.328 4.125-2.328 4.125 2.328-4.125 2.328zm.75 6.75v-5.25l3.938-2.219-3.938 2.219v5.25zm7.5-9.188l-3.375 1.891-4.125-2.328-4.125 2.328-3.375-1.891 7.5-4.219 7.5 4.219z"/></svg>
+            </a>
+            <a href="mailto:girishlade111@gmail.com" class="text-gray-500 hover:text-white transition-colors duration-200">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0l-8 5-8-5h16zm0 12H4V8l8 5 8-5v10z"/></svg>
+            </a>
+        </div>
+        <p class="text-gray-600 text-sm mt-4">&copy; 2024 Girish Lade. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+        // --- ELEMENT REFERENCES ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+        const scoreEl = document.getElementById('score');
+        const typingModal = document.getElementById('typing-modal');
+        const modalWordEl = document.getElementById('typing-modal-word');
+        const modalInput = document.getElementById('typing-modal-input');
+        const newThemeBtn = document.getElementById('new-theme-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const themeDisplay = document.getElementById('theme-display');
+        const challengeView = document.getElementById('challenge-view');
+        const successView = document.getElementById('success-view');
+        const timerFeedbackEl = document.getElementById('timer-feedback');
+        const hintBtn = document.getElementById('hint-btn');
+        const hintDisplay = document.getElementById('hint-display');
+        const learnWordBtn = document.getElementById('learn-word-btn');
+        const continueBtn = document.getElementById('continue-btn');
+        const definitionDisplay = document.getElementById('definition-display');
+        const successWordEl = document.getElementById('success-word');
+
+        // --- GAME STATE ---
+        let score = 0;
+        let currentTheme = 'Classic';
+        let isGamePaused = false;
+        let animationFrameId;
+        const player = { width: 40, height: 60, x: 0, y: 0, speed: 5, dx: 0, dy: 0, color: '#f59e0b' }; // amber-500
+        const camera = { x: 0, y: 0 };
+        const world = { width: 5000, height: 2000, groundLevel: 100 };
+        let currentWordList = [ "adventure", "galaxy", "quantum", "velocity", "horizon", "journey", "mystery", "cascade", "breeze", "crystal", "discover", "echo", "fantasy", "glisten", "harmony", "illuminate", "jupiter", "kaleidoscope", "luminous", "magnificent", "nebula", "oracle", "phenomenon", "quest", "radiant", "serenity", "tranquil", "universe", "vibrant", "wanderlust", "xenon", "yearning", "zephyr" ];
+        const gameWords = [];
+        const scenery = [];
+        const keys = { w: false, a: false, s: false, d: false };
+        let currentWord = null;
+        let startTime = 0;
+
+        // --- GEMINI API INTEGRATION ---
+        async function callGemini(prompt, generationConfig = null) {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            let payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+            if (generationConfig) { payload.generationConfig = generationConfig; }
+
+            let attempt = 0;
+            const maxAttempts = 5;
+            while (attempt < maxAttempts) {
+                try {
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    if (result.candidates?.[0]?.content?.parts?.[0]) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error("Invalid response structure from Gemini API");
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${attempt + 1} failed:`, error);
+                    attempt++;
+                    if (attempt >= maxAttempts) throw new Error("API call failed after several attempts.");
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+                }
+            }
+        }
+
+        async function getNewTheme() {
+            const prompt = "Generate a single, fun, one-word theme for a typing game. Examples: space, jungle, magic, future, ocean, cyberpunk, fantasy, cooking, pirate, medieval.";
+            const theme = await callGemini(prompt);
+            return theme.trim().replace(/[^a-zA-Z]/g, '');
+        }
+
+        async function fetchWordsForTheme(theme) {
+            const prompt = `Generate a list of 50 unique, single, common English words related to the theme: ${theme}. The words should be between 4 and 12 letters long.`;
+            const generationConfig = { responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "STRING" } } };
+            const jsonString = await callGemini(prompt, generationConfig);
+            return JSON.parse(jsonString);
+        }
+        
+        async function getHintForWord(word, theme) {
+            const prompt = `Create a short, simple, one-sentence hint for the word "${word}" within the context of a "${theme}" theme.`;
+            return await callGemini(prompt);
+        }
+
+        async function getDefinitionForWord(word) {
+            const prompt = `Provide a simple, one-sentence definition for the word "${word}", suitable for a learner.`;
+            return await callGemini(prompt);
+        }
+
+        async function startNewThemedLevel() {
+            loadingOverlay.style.display = 'flex';
+            newThemeBtn.disabled = true;
+            try {
+                currentTheme = await getNewTheme();
+                themeDisplay.textContent = currentTheme;
+                const newWords = await fetchWordsForTheme(currentTheme);
+                currentWordList = newWords;
+                resetGame();
+            } catch (error) {
+                console.error("Failed to generate new theme:", error);
+                themeDisplay.textContent = "Error!";
+                currentWordList = [ "error", "api", "failed", "please", "try", "again", "later" ];
+                resetGame();
+            } finally {
+                loadingOverlay.style.display = 'none';
+                newThemeBtn.disabled = false;
+            }
+        }
+
+        // --- INITIALIZATION & GAME STATE ---
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            newThemeBtn.addEventListener('click', startNewThemedLevel);
+            hintBtn.addEventListener('click', handleHintClick);
+            learnWordBtn.addEventListener('click', handleLearnWordClick);
+            continueBtn.addEventListener('click', closeTypingChallenge);
+
+            resetGame();
+            generateScenery();
+            gameLoop();
+
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            modalInput.addEventListener('input', handleTyping);
+        }
+
+        function resizeCanvas() {
+            canvas.width = gameContainer.clientWidth;
+            canvas.height = gameContainer.clientHeight;
+        }
+
+        function resetGame() {
+            score = 0;
+            scoreEl.textContent = '0';
+            gameWords.length = 0;
+            player.x = canvas.width / 2;
+            player.y = world.height - world.groundLevel - player.height;
+            generateWords();
+        }
+
+        function generateWords() {
+            for (let i = 0; i < 100; i++) {
+                const wordText = currentWordList[Math.floor(Math.random() * currentWordList.length)];
+                if (!wordText) continue;
+                gameWords.push({ text: wordText, x: Math.random() * world.width, y: world.height - world.groundLevel - (Math.random() * 200 + 50), width: wordText.length * 20, height: 40, encountered: false, color: '#1f2937' }); // gray-800
+            }
+        }
+
+        function generateScenery() {
+            for (let i = 0; i < 50; i++) scenery.push({ type: 'cloud', x: Math.random() * world.width, y: Math.random() * (world.height / 2), radius: Math.random() * 40 + 20, color: 'rgba(255, 255, 255, 0.8)' });
+            for (let i = 0; i < 20; i++) scenery.push({ type: 'hill', x: Math.random() * world.width, y: world.height - world.groundLevel, radius: Math.random() * 200 + 100, color: i % 2 === 0 ? '#10b981' : '#059669' }); // emerald-500/600
+        }
+
+        // --- GAME LOOP (Performance sensitive) ---
+        function gameLoop() {
+            if (isGamePaused) return;
+            update();
+            draw();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            player.dx = 0; player.dy = 0;
+            if (keys.a) player.dx = -player.speed;
+            if (keys.d) player.dx = player.speed;
+            if (keys.w) player.dy = -player.speed;
+            if (keys.s) player.dy = player.speed;
+
+            let nextX = player.x + player.dx, nextY = player.y + player.dy;
+            if (nextX < 0) nextX = 0;
+            if (nextX + player.width > world.width) nextX = world.width - player.width;
+            if (nextY < 0) nextY = 0;
+            if (nextY + player.height > world.height - world.groundLevel) nextY = world.height - world.groundLevel - player.height;
+            player.x = nextX; player.y = nextY;
+
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+            if (camera.x < 0) camera.x = 0;
+            if (camera.x > world.width - canvas.width) camera.x = world.width - canvas.width;
+            if (camera.y < 0) camera.y = 0;
+            if (camera.y > world.height - canvas.height) camera.y = world.height - canvas.height;
+
+            checkCollisions();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+            drawScenery();
+            ctx.fillStyle = '#22c55e'; // green-500
+            ctx.fillRect(0, world.height - world.groundLevel, world.width, world.groundLevel);
+            drawWords();
+            drawPlayer();
+            ctx.restore();
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#111827'; // gray-900
+            const eyeXOffset = keys.d ? player.width - 12 : 4;
+            ctx.fillRect(player.x + eyeXOffset, player.y + 10, 8, 8);
+        }
+
+        function drawWords() {
+            ctx.font = '24px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            gameWords.forEach(word => {
+                if (!word.encountered) {
+                    ctx.fillStyle = word.color;
+                    ctx.fillText(word.text, word.x, word.y);
+                }
+            });
+        }
+
+        function drawScenery() {
+             scenery.forEach(item => {
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                if (item.type === 'cloud') {
+                    ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+                    ctx.arc(item.x + item.radius * 0.8, item.y, item.radius * 0.8, 0, Math.PI * 2);
+                    ctx.arc(item.x - item.radius * 0.8, item.y, item.radius * 0.7, 0, Math.PI * 2);
+                } else if (item.type === 'hill') {
+                    ctx.arc(item.x, item.y, item.radius, Math.PI, 0);
+                }
+                ctx.closePath();
+                ctx.fill();
+            });
+        }
+
+        // --- COLLISION & TYPING LOGIC ---
+        function checkCollisions() {
+            for (const word of gameWords) {
+                if (word.encountered) continue;
+                if (player.x < word.x + word.width / 2 && player.x + player.width > word.x - word.width / 2 && player.y < word.y + word.height / 2 && player.y + player.height > word.y - word.height / 2) {
+                    word.encountered = true;
+                    triggerTypingChallenge(word);
+                    break; // Handle one collision at a time
+                }
+            }
+        }
+
+        function triggerTypingChallenge(word) {
+            isGamePaused = true;
+            currentWord = word;
+            
+            successView.classList.add('hidden');
+            challengeView.classList.remove('hidden');
+            modalWordEl.textContent = word.text;
+            modalInput.value = '';
+            modalInput.className = 'w-full text-center bg-gray-900 text-white text-3xl p-3 rounded-lg font-mono tracking-widest';
+            hintDisplay.innerHTML = '';
+            hintBtn.disabled = false;
+            learnWordBtn.disabled = false;
+            definitionDisplay.innerHTML = '';
+
+            typingModal.style.display = 'flex';
+            modalInput.focus();
+            startTime = Date.now();
+        }
+
+        function handleTyping() {
+            const typedText = modalInput.value;
+            const targetText = currentWord.text;
+
+            if (typedText === targetText) {
+                const endTime = Date.now();
+                const timeTaken = (endTime - startTime) / 1000;
+                const basePoints = targetText.length * 10;
+                const timeBonus = Math.max(0, 100 - (timeTaken * 10));
+                const pointsGained = Math.round(basePoints + timeBonus);
+                score += pointsGained;
+                scoreEl.textContent = score;
+                
+                modalInput.classList.add('correct');
+                
+                setTimeout(() => {
+                    challengeView.classList.add('hidden');
+                    successView.classList.remove('hidden');
+                    timerFeedbackEl.textContent = `+${pointsGained} points! (${timeTaken.toFixed(2)}s)`;
+                    successWordEl.textContent = currentWord.text;
+                }, 300);
+
+            } else if (targetText.startsWith(typedText)) {
+                modalInput.classList.remove('incorrect', 'correct');
+            } else {
+                modalInput.classList.add('incorrect');
+            }
+        }
+
+        async function handleHintClick() {
+            hintBtn.disabled = true;
+            hintDisplay.innerHTML = '<div class="loader mini-loader mx-auto"></div>';
+            try {
+                const hint = await getHintForWord(currentWord.text, currentTheme);
+                hintDisplay.textContent = hint;
+            } catch (error) {
+                hintDisplay.textContent = "Could not get a hint. Please try again.";
+                hintBtn.disabled = false;
+            }
+        }
+
+        async function handleLearnWordClick() {
+            learnWordBtn.disabled = true;
+            definitionDisplay.innerHTML = '<div class="loader mini-loader mx-auto"></div>';
+            try {
+                const definition = await getDefinitionForWord(currentWord.text);
+                definitionDisplay.textContent = definition;
+            } catch (error) {
+                definitionDisplay.textContent = "Could not get definition. Please try again.";
+                learnWordBtn.disabled = false;
+            }
+        }
+
+        function closeTypingChallenge() {
+            typingModal.style.display = 'none';
+            isGamePaused = false;
+            currentWord = null;
+            gameLoop();
+        }
+
+        // --- EVENT HANDLERS ---
+        function handleKeyDown(e) {
+            if (isGamePaused) return;
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (e.key === 'a' || e.key === 'A') keys.a = true;
+            if (e.key === 's' || e.key === 'S') keys.s = true;
+            if (e.key === 'd' || e.key === 'D') keys.d = true;
+        }
+
+        function handleKeyUp(e) {
+            if (e.key === 'w' || e.key === 'W') keys.w = false;
+            if (e.key === 'a' || e.key === 'A') keys.a = false;
+            if (e.key === 's' || e.key === 'S') keys.s = false;
+            if (e.key === 'd' || e.key === 'D') keys.d = false;
+        }
+
+        // --- START GAME ---
+        init();
+
+    </script>
+</body>
+</html>
