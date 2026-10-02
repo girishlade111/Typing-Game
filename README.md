@@ -1,1 +1,46 @@
-Typing Scroller AdventureWelcome to Typing Scroller Adventure, a dynamic, side-scrolling typing game designed to test your speed and expand your vocabulary. Explore procedurally generated worlds and challenge your typing skills in this modern, educational web application.✨ Key FeaturesDynamic Content: Powered by the Gemini API, the game generates new themes and word lists on demand. You'll never play the same game twice!Educational Gameplay: Learn new words as you play. After successfully typing a word, you can get its definition instantly.Contextual Hints: Stuck on a word? The app can generate a helpful hint that uses the word in a sentence related to the current theme.Responsive Design: A clean, minimalistic, and professional UI that works beautifully on both desktop and mobile devices.Performance-Oriented: A smooth gameplay experience with clear loading states for a seamless transition between themes.🎮 How to PlayMovement: Use the W, A, S, and D keys on your keyboard to move your character up, left, down, and right through the vibrant, scrolling world.Encounter Words: As you explore, you will run into floating words. Colliding with a word will pause the game and initiate a typing challenge.The Challenge:A modal window will appear, prompting you to type the word you encountered.Type the word as quickly and accurately as you can. The input field will provide feedback on your accuracy.Scoring: You earn points based on the length of the word and your typing speed. Faster typing means a higher score!Learn & Discover:Click ✨ Get a Hint if you need a clue.After typing a word, click ✨ Learn Word to see its definition.Click ✨ New Theme at any time to generate a completely new world with a different theme and a fresh set of words.
+# Typing Scroller Adventure
+
+A browser-based side-scrolling typing game that tests your speed and expands your vocabulary. Explore procedurally generated worlds, bump into floating words, and type them fast and accurately to score points. Themed word lists, hints, and definitions are generated on demand via the Gemini API (bring your own key).
+
+## Features
+
+- **Side-scrolling adventure** — move your character with W/A/S/D through a vibrant canvas world
+- **Typing challenges** — collide with a floating word to open a typing modal; score scales with word length and speed
+- **AI-generated themes** — click "New Theme" to generate a fresh world with a new word set via the Gemini API
+- **Learn as you play** — "Learn Word" fetches a definition after each challenge
+- **Contextual hints** — "Get a Hint" produces a sentence using the word in the current theme
+- **Responsive, mobile-friendly UI** — minimal design with Tailwind CSS
+
+## Tech stack
+
+- Single-file HTML5 game (`index.html`) — no build step
+- HTML5 Canvas for the scrolling world, Tailwind CSS via CDN for styling
+- [Gemini API](https://ai.google.dev/) (`gemini-2.5-flash-preview`) for dynamic themes, hints, and definitions
+
+## Quick start
+
+Just open `index.html` in a browser — no install or build needed. For Gemini-powered features, get a free API key from [Google AI Studio](https://aistudio.google.com/) and paste it where prompted in the game UI.
+
+```bash
+git clone https://github.com/girishlade111/Typing-Game.git
+# then open index.html, or:
+npx http-server -p 8080
+```
+
+Note: the `Typing Scroller Adventure - Web Page` file is an alternate exported copy of the game.
+
+## Environment variables
+
+None — the game is fully client-side. Your Gemini API key is entered in the browser at runtime and never stored in the repo.
+
+## Deploy notes
+
+Static site — serve the repo root from any static host (GitHub Pages, Netlify, Cloudflare Pages). The root `index.html` is the live game.
+
+## License
+
+MIT
+
+---
+
+Built by [Girish Lade](https://ladestack.in)
